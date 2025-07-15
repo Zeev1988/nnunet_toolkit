@@ -2,20 +2,20 @@
 
 ## Instalation
 - in conda terminal:
- - git clone https://github.com/Zeev1988/nnunet_toolkit.git
- - cd nnunet_toolkit
- - conda env create -f enviroment.yml
+  - git clone https://github.com/Zeev1988/nnunet_toolkit.git
+  - cd nnunet_toolkit
+  - conda env create -f enviroment.yml
 
 ## Running:
 - in conda terminal - set up enviroment before running:
- -- conda activate conda_nnunet_toolkit
- - export nnUNet_raw="/path/to/your/nnunet_raw"
- - export nnUNet_preprocessed="/path/to/your/nnunet_preprocessed"
- - export nnUNet_preprocessed="/path/to/your/nnunet_preprocessed"
- - export nnUNet_results="/path/to/your/nnunet_results"
- - export CUDA_VISIBLE_DEVICES=0 (or any other gpu you want)
+  - conda activate conda_nnunet_toolkit
+  - export nnUNet_raw="/path/to/your/nnunet_raw"
+  - export nnUNet_preprocessed="/path/to/your/nnunet_preprocessed"
+  - export nnUNet_preprocessed="/path/to/your/nnunet_preprocessed"
+  - export nnUNet_results="/path/to/your/nnunet_results"
+  - export CUDA_VISIBLE_DEVICES=0 (or any other gpu you want)
 - run:
- - streamlit run ./gui.py
+  - streamlit run ./gui.py
 
 
 
