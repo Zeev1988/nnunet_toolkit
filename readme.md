@@ -8,7 +8,7 @@
 
 ## Running:
 - in conda terminal - set up enviroment before running:
- - conda activate conda_nnunet_toolkit
+ -- conda activate conda_nnunet_toolkit
  - export nnUNet_raw="/path/to/your/nnunet_raw"
  - export nnUNet_preprocessed="/path/to/your/nnunet_preprocessed"
  - export nnUNet_preprocessed="/path/to/your/nnunet_preprocessed"
