@@ -1,4 +1,3 @@
-import json
 import os
 import pickle
 import json
@@ -8,6 +7,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import GroupKFold
 
+from HD_BET.HD_BET import dcm_tool
 from params import ToolKitParams
 
 
@@ -110,22 +110,50 @@ def create_task_folders(task_path: str):
     os.makedirs(os.path.join(task_path, test_lbl))
 
 
-def ichilov_data_to_nnunet_format(csv_path: str, params: ToolKitParams, task_dir: str):
+def get_next_case_index(task_dir: str) -> int:
+    """
+    Scan task_dir for existing NNUNET_xxx files and return the next available index.
+    """
+    pattern = re.compile(r"NNUNET_(\d{3})")
+    max_index = -1
+
+    for subdir in ["imagesTr", "imagesTs", "labelsTr", "labelsTs"]:
+        dir_path = os.path.join(task_dir, subdir)
+        if not os.path.isdir(dir_path):
+            continue
+        for fname in os.listdir(dir_path):
+            match = pattern.match(fname)
+            if match:
+                idx = int(match.group(1))
+                max_index = max(max_index, idx)
+
+    return max_index + 1  # start from next available
+
+
+def ichilov_data_to_nnunet_format(csv_path: str, params: ToolKitParams, task_dir: str, create_structure: bool):
     ext = '.nii.gz'
-    create_task_folders(task_dir)
+    if create_structure:
+        create_task_folders(task_dir)
 
     df = pd.read_csv(csv_path)
     patient_mapping = {}
 
-    for index, row in df.iterrows():
+    next_case_id = get_next_case_index(task_dir)
+    for _, row in df.iterrows():
         patient_name = row[params.subject_col_name]
-        case_id = f'NNUNET_{index:03}'
+        case_id = f'NNUNET_{next_case_id:03}'
+        next_case_id += 1
         patient_mapping[case_id] = re.sub(r'[0-9]+', '', patient_name)
 
         out_dir = os.path.join(task_dir, "imagesTr") if row['is_train'] else os.path.join(task_dir, "imagesTs")
         for mod in params.modalities:
             file_name = f'{case_id}_{params.modality_ids[mod]}{ext}'
-            shutil.copy(row[mod], os.path.join(out_dir, file_name))
+            if row[mod].endswith('nii.gz'):
+                shutil.copy(row[mod], os.path.join(out_dir, file_name))
+            else:
+                ext = '.nii.gz' if params.shrink_output else '.nii'
+                dcm_tool.dcm2nii((patient_name, {0:{mod: row[mod]}}), out_dir, params.shrink_output, [mod])
+                os.rename(os.path.join(out_dir, f'{mod}{ext}'), os.path.join(out_dir, file_name))
         if params.label_name in row:
             out_dir = os.path.join(task_dir, "labelsTr") if row['is_train'] else os.path.join(task_dir, "labelsTs")
             shutil.copy(row[params.label_name],
