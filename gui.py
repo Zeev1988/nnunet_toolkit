@@ -545,6 +545,7 @@ def run_training(params: ToolKitParams):
         st.success(f"Done Training")
         post_training(params)
 
+
 def run_inference(params: ToolKitParams) -> str:
     progress_bar = st.progress(0)
 
@@ -694,7 +695,7 @@ def show_gui():
             _preprocessing_section()
 
     elif st.session_state.get('active_tab') == 'Training':
-        with st.expander("", expanded=True):
+        with st.container(border=True):
             st.subheader("nnUNet Training Configuration")
             choices_loss_function = [
                 "Dice CE",
@@ -785,7 +786,7 @@ def show_gui():
                 )
 
     elif st.session_state.get('active_tab') == 'Inference':
-        with st.expander("", expanded=True):
+        with st.container(border=True):
             st.subheader("nnUNet Inference")
 
             col1, col2 = st.columns(2)
