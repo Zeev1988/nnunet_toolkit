@@ -7,7 +7,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-streamlit_loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict if name.startswith('streamlit')]
+streamlit_loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict if
+                     name.startswith('streamlit')]
 for logger in streamlit_loggers:
     logger.setLevel(logging.ERROR)
 import streamlit as st
@@ -20,8 +21,6 @@ import nnunetv2.run.run_training as rt
 from HD_BET.HD_BET.bpt import BrainPreProcessingTool
 from ichilov2nnunet import ichilov_data_to_nnunet_format
 from params import ToolKitParams, ToolKitStage
-
-
 
 NNUNET_RAW_DATA_PATH = os.getenv("nnUNet_raw")
 NNUNET_PREPROCESSED_PATH = os.getenv("nnUNet_preprocessed")
@@ -79,7 +78,8 @@ def init_session_state():
 
 
 def create_nnunet_dataset(params: ToolKitParams):
-    with st.spinner("Creating nnUNet project..." if not task_folder_path(params.task) else "Appending to nnUNet project..."):
+    with st.spinner(
+            "Creating nnUNet project..." if not task_folder_path(params.task) else "Appending to nnUNet project..."):
         ichilov_data_to_nnunet_format(params.csv_path, params, task_folder_path(params.task),
                                       not task_folder_exists(params.task))
 
@@ -92,6 +92,40 @@ def create_nnunet_dataset(params: ToolKitParams):
             os.path.join(NNUNET_RAW_DATA_PATH, f"Dataset{params.task:03d}", "splits_final.json"),
             os.path.join(NNUNET_PREPROCESSED_PATH, f"Dataset{params.task:03d}", "splits_final.json"))
     st.success("NNUnet Dataset is Ready")
+
+
+def create_nnunet_dataset_for_inference(params: ToolKitParams):
+    """Create nnUNet dataset for inference, saving files to imagesTs folder"""
+    with st.spinner("Preparing inference data for nnUNet..."):
+        task_dir = task_folder_path(params.task)
+
+        # Ensure the task directory and imagesTs directory exist
+        os.makedirs(task_dir, exist_ok=True)
+        imagesTs_dir = os.path.join(task_dir, "imagesTs")
+        os.makedirs(imagesTs_dir, exist_ok=True)
+
+        # Create a modified params object that forces all data to be treated as test data
+        inference_params = ToolKitParams(**params.__dict__)
+
+        # Read the CSV and modify it to mark all rows as test data
+        import pandas as pd
+        df = pd.read_csv(params.csv_path)
+        df['is_train'] = False  # Force all data to be test data
+
+        # Save modified CSV to temp file
+        temp_csv_path = os.path.join(tempfile.gettempdir(), f"inference_data_{params.task}.csv")
+        df.to_csv(temp_csv_path, index=False)
+
+        # Update params to use the modified CSV
+        inference_params.csv_path = temp_csv_path
+
+        # Use the existing function but with modified params
+        ichilov_data_to_nnunet_format(inference_params.csv_path, inference_params, task_dir, False)
+
+        # Clean up temp CSV file
+        os.remove(temp_csv_path)
+
+    st.success("Inference data prepared for nnUNet")
 
 
 # Callback functions for widgets
@@ -110,10 +144,12 @@ def update_reg_fixed_modality():
         if st.session_state.get('active_tab') == 'Data Preprocessing' \
         else st.session_state.inference_reg_fixed_modality_key
 
+
 def update_perform_bet():
     st.session_state.perform_bet = st.session_state.preprocessing_perform_bet_key \
         if st.session_state.get('active_tab') == 'Data Preprocessing' \
         else st.session_state.inference_perform_bet_key
+
 
 def update_bet_save_out():
     st.session_state.bet_save_out = st.session_state.bet_save_out_key
@@ -124,11 +160,11 @@ def update_bet_out_path():
         if st.session_state.get('active_tab') == 'Data Preprocessing' \
         else st.session_state.inference_bet_out_path_key
 
+
 def update_do_preprocessing():
     st.session_state.do_preprocessing = st.session_state.preprocessing_do_preprocessing_key \
         if st.session_state.get('active_tab') == 'Data Preprocessing' \
         else st.session_state.inference_do_preprocessing_key
-
 
 
 def update_csv_path():
@@ -195,9 +231,9 @@ def _preprocessing_section(tab='preprocessing'):
         st.subheader("Registration Params")
 
         st.checkbox("Perform Registration",
-                  value=st.session_state.get('perform_reg', False),
-                  key=f"{tab}_perform_reg_key",
-                  on_change=update_perform_reg)
+                    value=st.session_state.get('perform_reg', False),
+                    key=f"{tab}_perform_reg_key",
+                    on_change=update_perform_reg)
 
         if st.session_state.get('perform_reg', True):
             with st.container():
@@ -342,6 +378,7 @@ def _labels_section(labels_in=None):
     """
     st.write("Labels")
     read_only = labels_in is not None
+
     # When editable, we may normalize/enforce background label.
     # When read_only, we must NOT mutate input or session state.
     def ensure_background_label():
@@ -481,7 +518,8 @@ def _labels_section(labels_in=None):
 
 def post_training(params: ToolKitParams):
     find_best_configuration(params.task,
-                            tuple([{'plans': 'nnUNetPlans', 'configuration': params.configuration, 'trainer': 'nnUNetTrainer'},]),
+                            tuple([{'plans': 'nnUNetPlans', 'configuration': params.configuration,
+                                    'trainer': 'nnUNetTrainer'}, ]),
                             True, 8, False, params.folds)
 
 
@@ -515,9 +553,6 @@ def run_training(params: ToolKitParams):
     progress_bar = st.progress(0.0)
 
     with st.spinner("Training..."):
-        log_placeholder = st.empty()
-        # logger = StreamlitLogger(log_placeholder)
-        # sys.stdout = logger
         log_container = st.empty()
 
         for idx, f in enumerate(params.folds):
@@ -526,7 +561,6 @@ def run_training(params: ToolKitParams):
             progress_bar.progress(progress)
             # Display current fold
             st.write(f"Processing fold {f} ({idx + 1} of {num_folds})")
-
 
             # Prepare parameters for training
             Params = {
@@ -559,7 +593,7 @@ def run_inference(params: ToolKitParams) -> str:
 
     for i, prefix in enumerate(prefixes):
         # create temp folder for this case
-        progress_bar.progress(i/len(prefixes))
+        progress_bar.progress(i / len(prefixes))
         tmp_dir = tempfile.mkdtemp(prefix=f"{prefix}_")
 
         # copy all modality files for this case
@@ -580,11 +614,21 @@ def run_inference(params: ToolKitParams) -> str:
     st.success(f"Done Inference")
 
 
-def run_preprocessing(params: ToolKitParams) -> str:
+def run_preprocessing(params: ToolKitParams, use_temp_dir: bool = False) -> str:
     progress_bar = st.progress(0)
     status_text = st.empty()
     error_container = st.container()
-    processor = BrainPreProcessingTool(params)
+
+    # Create a copy of params to avoid modifying the original
+    processing_params = ToolKitParams(**params.__dict__)
+
+    # If using temp directory, create one and update the out_path
+    if use_temp_dir:
+        temp_dir = tempfile.mkdtemp(prefix="inference_preprocessing_")
+        processing_params.out_path = temp_dir
+        processing_params.bet_save_out = True  # Ensure BET output is saved
+
+    processor = BrainPreProcessingTool(processing_params)
     errors = []
     last_output_directory = ""
 
@@ -666,7 +710,7 @@ def show_gui():
                 modality_digits_in = None
                 if task_id is not None and task_folder_exists(task_id):
                     params = ToolKitParams.load_from_json(task_folder_path(task_id))
-                    labels_in = [{"label_number": v, "label_string": k} for k,v in params.label_ids.items()]
+                    labels_in = [{"label_number": v, "label_string": k} for k, v in params.label_ids.items()]
                     modality_digits_in = params.modality_ids
                     modalities_in = params.modalities
                     st.session_state.modalities = modalities_in
@@ -801,6 +845,16 @@ def show_gui():
                     on_change=update_task_id
                 )
 
+            with col2:
+                st.file_uploader(
+                    "CSV path for inference data",
+                    type=["csv"],
+                    key="inference_csv_path_key",
+                    help="Upload CSV file containing inference data paths"
+                )
+
+        if st.session_state.get('inference_csv_path_key', False):
+            _preprocessing_section(tab='inference')
 
     # Run button based on active tab
     can_run = False
@@ -822,7 +876,8 @@ def show_gui():
                     task=int(st.session_state.get('task_id', 0)),
                     csv_path=st.session_state.get('csv_path'),
                     out_path=st.session_state.get('bet_out_path', ''),
-                    reg_fixed_module=st.session_state.get('reg_fixed_modality') if st.session_state.get('perform_reg') else None,
+                    reg_fixed_module=st.session_state.get('reg_fixed_modality') if st.session_state.get(
+                        'perform_reg') else None,
                     shrink_output=st.session_state.get('compress', True),
                     modalities=st.session_state.get('modalities', []),
                     modality_ids=st.session_state.get('modality_digits', {}),
@@ -860,7 +915,52 @@ def show_gui():
 
         elif st.session_state.get('active_tab') == 'Inference':
             st.write("Starting inference with the configured parameters...")
+
+            # Load existing params from the task folder
             params = ToolKitParams.load_from_json(task_folder_path(st.session_state.get('task_id', 0)))
+            st.write("Running preprocessing on inference data...")
+
+            # Get the uploaded CSV file
+            uploaded_csv = st.session_state.get('inference_csv_path_key')
+            if uploaded_csv is None:
+                st.error("No CSV file uploaded for inference preprocessing")
+                return
+
+            # Save uploaded CSV to temp file
+            temp_csv_path = os.path.join(tempfile.gettempdir(), f"inference_upload_{st.session_state.task_id}.csv")
+            with open(temp_csv_path, "wb") as f:
+                f.write(uploaded_csv.getbuffer())
+
+            # Create params for preprocessing
+            preprocessing_params = ToolKitParams(
+                task=int(st.session_state.get('task_id', 0)),
+                csv_path=temp_csv_path,
+                out_path="",  # Will be set to temp dir in run_preprocessing
+                reg_fixed_module=st.session_state.get('reg_fixed_modality') if st.session_state.get(
+                    'perform_reg') else None,
+                shrink_output=st.session_state.get('compress', True),
+                modalities=params.modalities,  # Use modalities from existing params
+                modality_ids=params.modality_ids,  # Use modality IDs from existing params
+                perform_reg=st.session_state.perform_reg,
+                perform_bet=st.session_state.perform_bet,
+                label_ids=params.label_ids  # Use label IDs from existing params
+            )
+
+            # Run preprocessing with temp directory
+            last_output_directory = run_preprocessing(preprocessing_params, use_temp_dir=True)
+
+            # Update params to use the processed CSV
+            preprocessing_params.csv_path = os.path.join(last_output_directory, 'summary.csv')
+
+            # Create nnUNet dataset for inference (saves to imagesTs)
+            create_nnunet_dataset_for_inference(preprocessing_params)
+
+            # Clean up temp CSV file
+            os.remove(temp_csv_path)
+
+            st.success("Preprocessing completed. Starting inference...")
+
+            # Run inference
             run_inference(params)
 
 
