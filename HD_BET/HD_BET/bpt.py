@@ -87,10 +87,12 @@ class BrainPreProcessingTool:
                     if self.params.perform_bet:
                         study = subject[1]
                         label_file = list(study.values())[0][self.params.label_name]
-                        os.rename(label_file, label_file.replace(".nii.gz", ""))
+                        if label_file:
+                            os.rename(label_file, label_file.replace(".nii.gz", ""))
                         out_dir = os.path.join(bet_dir, subject_name, study_id)
                         hdbet_predict(out_dir, out_dir, predictor)
-                        os.rename(label_file.replace(".nii.gz",""), label_file)
+                        if label_file:
+                            os.rename(label_file.replace(".nii.gz",""), label_file)
                     bet_summary.append(generate_data(subject, self.params))
 
                     processed += 1

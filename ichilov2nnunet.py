@@ -155,9 +155,12 @@ def ichilov_data_to_nnunet_format(csv_path: str, params: ToolKitParams, task_dir
                 dcm_tool.dcm2nii((patient_name, {0:{mod: row[mod]}}), out_dir, params.shrink_output, [mod])
                 os.rename(os.path.join(out_dir, f'{mod}{ext}'), os.path.join(out_dir, file_name))
         if params.label_name in row:
-            out_dir = os.path.join(task_dir, "labelsTr") if row['is_train'] else os.path.join(task_dir, "labelsTs")
-            shutil.copy(row[params.label_name],
-                        os.path.join(out_dir, f'{case_id}{ext}'))
+            try:
+                out_dir = os.path.join(task_dir, "labelsTr") if row['is_train'] else os.path.join(task_dir, "labelsTs")
+                shutil.copy(row[params.label_name],
+                            os.path.join(out_dir, f'{case_id}{ext}'))
+            except:
+                pass
 
     create_dataset_json(params, task_dir)
     create_json_file_from_dir(task_dir, patient_mapping)

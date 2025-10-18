@@ -112,20 +112,8 @@ def create_nnunet_dataset_for_inference(params: ToolKitParams):
         df = pd.read_csv(params.csv_path)
         df['is_train'] = False  # Force all data to be test data
 
-        # Save modified CSV to temp file
-        temp_csv_path = os.path.join(tempfile.gettempdir(), f"inference_data_{params.task}.csv")
-        df.to_csv(temp_csv_path, index=False)
-
-        # Update params to use the modified CSV
-        inference_params.csv_path = temp_csv_path
-
         # Use the existing function but with modified params
         ichilov_data_to_nnunet_format(inference_params.csv_path, inference_params, task_dir, False)
-
-        # Clean up temp CSV file
-        os.remove(temp_csv_path)
-
-    st.success("Inference data prepared for nnUNet")
 
 
 # Callback functions for widgets
@@ -162,9 +150,7 @@ def update_bet_out_path():
 
 
 def update_do_preprocessing():
-    st.session_state.do_preprocessing = st.session_state.preprocessing_do_preprocessing_key \
-        if st.session_state.get('active_tab') == 'Data Preprocessing' \
-        else st.session_state.inference_do_preprocessing_key
+    st.session_state.do_preprocessing = st.session_state.do_preprocessing_key
 
 
 def update_csv_path():
@@ -614,19 +600,13 @@ def run_inference(params: ToolKitParams) -> str:
     st.success(f"Done Inference")
 
 
-def run_preprocessing(params: ToolKitParams, use_temp_dir: bool = False) -> str:
+def run_preprocessing(params: ToolKitParams) -> str:
     progress_bar = st.progress(0)
     status_text = st.empty()
     error_container = st.container()
 
     # Create a copy of params to avoid modifying the original
     processing_params = ToolKitParams(**params.__dict__)
-
-    # If using temp directory, create one and update the out_path
-    if use_temp_dir:
-        temp_dir = tempfile.mkdtemp(prefix="inference_preprocessing_")
-        processing_params.out_path = temp_dir
-        processing_params.bet_save_out = True  # Ensure BET output is saved
 
     processor = BrainPreProcessingTool(processing_params)
     errors = []
@@ -833,28 +813,23 @@ def show_gui():
         with st.container(border=True):
             st.subheader("nnUNet Inference")
 
-            col1, col2 = st.columns(2)
-            with col1:
-                st.number_input(
-                    label="Output nnUNet Task",
-                    min_value=1, step=1,
-                    value=st.session_state.get('task_id', None),
-                    placeholder="task number (E.g. 2)",
-                    help="Enter the task number",
-                    key="inference_task_id_key",
-                    on_change=update_task_id
-                )
 
-            with col2:
-                st.file_uploader(
-                    "CSV path for inference data",
-                    type=["csv"],
-                    key="inference_csv_path_key",
-                    help="Upload CSV file containing inference data paths"
-                )
+            st.number_input(
+                label="Output nnUNet Task",
+                min_value=1, step=1,
+                value=st.session_state.get('task_id', None),
+                placeholder="task number (E.g. 2)",
+                help="Enter the task number",
+                key="inference_task_id_key",
+                on_change=update_task_id
+            )
 
-        if st.session_state.get('inference_csv_path_key', False):
-            _preprocessing_section(tab='inference')
+            st.file_uploader(
+                "CSV path for inference data",
+                type=["csv"],
+                key="inference_csv_path_key",
+                help="Upload CSV file containing inference data paths"
+            )
 
     # Run button based on active tab
     can_run = False
@@ -926,42 +901,24 @@ def show_gui():
                 st.error("No CSV file uploaded for inference preprocessing")
                 return
 
-            # Save uploaded CSV to temp file
-            temp_csv_path = os.path.join(tempfile.gettempdir(), f"inference_upload_{st.session_state.task_id}.csv")
-            with open(temp_csv_path, "wb") as f:
-                f.write(uploaded_csv.getbuffer())
+            with tempfile.TemporaryDirectory() as temp_dir:
+                params.task = int(st.session_state.get('task_id', 0))
+                params.out_path = temp_dir
+                params.csv_path = uploaded_csv
 
-            # Create params for preprocessing
-            preprocessing_params = ToolKitParams(
-                task=int(st.session_state.get('task_id', 0)),
-                csv_path=temp_csv_path,
-                out_path="",  # Will be set to temp dir in run_preprocessing
-                reg_fixed_module=st.session_state.get('reg_fixed_modality') if st.session_state.get(
-                    'perform_reg') else None,
-                shrink_output=st.session_state.get('compress', True),
-                modalities=params.modalities,  # Use modalities from existing params
-                modality_ids=params.modality_ids,  # Use modality IDs from existing params
-                perform_reg=st.session_state.perform_reg,
-                perform_bet=st.session_state.perform_bet,
-                label_ids=params.label_ids  # Use label IDs from existing params
-            )
+                # Run preprocessing with temp directory
+                last_output_directory = run_preprocessing(params)
 
-            # Run preprocessing with temp directory
-            last_output_directory = run_preprocessing(preprocessing_params, use_temp_dir=True)
+                # Update params to use the processed CSV
+                params.csv_path = os.path.join(last_output_directory, 'summary.csv')
 
-            # Update params to use the processed CSV
-            preprocessing_params.csv_path = os.path.join(last_output_directory, 'summary.csv')
+                # Create nnUNet dataset for inference (saves to imagesTs)
+                create_nnunet_dataset_for_inference(params)
 
-            # Create nnUNet dataset for inference (saves to imagesTs)
-            create_nnunet_dataset_for_inference(preprocessing_params)
+                st.success("Preprocessing completed. Starting inference...")
 
-            # Clean up temp CSV file
-            os.remove(temp_csv_path)
-
-            st.success("Preprocessing completed. Starting inference...")
-
-            # Run inference
-            run_inference(params)
+                # Run inference
+                run_inference(params)
 
 
 if __name__ == "__main__":
